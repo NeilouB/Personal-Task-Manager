@@ -20,7 +20,6 @@
 **Acceptance criteria:**
 
 - Tasks display their title, status, and due date.
-- Overdue tasks are clearly identified.
 - An appropriate empty state appears when no tasks exist.
 
 ### 3. Edit a task
@@ -51,7 +50,7 @@
 
 - The user can delete a task.
 - The system asks for confirmation before deletion.
-- A deleted task no longer appears in the task list.
+- A deleted task is permanently removed and no longer appears in the task list.
 - Cancelling confirmation preserves the task.
 
 ### 6. Save tasks between sessions
@@ -62,7 +61,7 @@
 
 - Tasks persist after closing and reopening the application.
 - Task titles, descriptions, statuses, and due dates are preserved.
-- Completed and deleted task states remain consistent between sessions.
+- Completed task states remain consistent between sessions, and permanently deleted tasks are not restored.
 - Saved tasks are restored automatically when the user starts a new session.
 
 ## Task Model
@@ -77,7 +76,6 @@
 |`created_at`  |DateTime   |Yes     |Creation timestamp                                       |
 |`updated_at`  |DateTime   |Yes     |Last modification timestamp                              |
 |`completed_at`|DateTime   |No      |Set when completed; cleared if reopened                  |
-|`deleted_at`  |DateTime   |No      |Used for soft deletion, if deletion recovery is supported|
 
 ### Model Rules
 
@@ -87,7 +85,7 @@
 - New tasks default to `pending`.
 - Only completed tasks may have a `completed_at` value.
 - A task may be reopened, changing its status from `completed`.
-- Deleted tasks must not appear in the normal task list.
+- Deleted tasks are permanently removed from storage.
 - `updated_at` changes whenever task data changes.
 - All task fields must persist between application sessions.
 
@@ -122,7 +120,6 @@
 
 ### Dates and time
 
-- Due date in the past.
 - Due date set to today.
 - Invalid date format.
 - Time-zone changes between sessions.
@@ -132,10 +129,10 @@
 ### Deletion
 
 - Deleting a nonexistent task.
-- Deleting an already deleted task.
+- Attempting to delete a task that was already deleted.
 - Cancelling the deletion confirmation.
 - Application closing during deletion.
-- Whether deleted tasks can be restored or are permanently removed.
+- Confirming that deletion is permanent and tasks cannot be restored.
 
 ### Persistence
 
