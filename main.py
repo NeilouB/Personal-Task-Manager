@@ -2,14 +2,32 @@ from datetime import date, datetime
 import json
 
 DATE_FORMAT = "%Y-%m-%d"
+MAX_TITLE_LENGTH = 200
+MAX_DESCRIPTION_LENGTH = 2000
+VALID_STATUSES = {"pending", "in_progress", "completed"}
+TASK_FIELDS = {
+    "id",
+    "title",
+    "description",
+    "status",
+    "due_date",
+    "created_at",
+    "updated_at",
+    "completed_at",
+}
 
 
 def load_tasks():
     try:
         with open("tasks.json", "r") as file:
-            return json.load(file)
+            tasks = json.load(file)
     except FileNotFoundError:
         return []
+    except json.JSONDecodeError as error:
+        raise ValueError("tasks.json contains invalid JSON.") from error
+
+    validate_tasks(tasks)
+    return tasks
 
 
 def save_tasks(tasks_list):
@@ -21,22 +39,73 @@ def today():
     return date.today().strftime(DATE_FORMAT)
 
 
+def validate_date(value, field_name, allow_empty=True):
+    if allow_empty and value in ("", None):
+        return
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a date in YYYY-MM-DD format.")
+    try:
+        datetime.strptime(value, DATE_FORMAT)
+    except ValueError as error:
+        raise ValueError(f"{field_name} must be a date in YYYY-MM-DD format.") from error
+
+
 def parse_due_date(value):
     value = value.strip()
     if not value:
         return ""
     try:
-        datetime.strptime(value, DATE_FORMAT)
-    except ValueError:
-        print("Invalid date. Use the format YYYY-MM-DD.")
+        validate_date(value, "Due date", allow_empty=False)
+    except ValueError as error:
+        print(error)
         return None
     return value
+
+
+def validate_tasks(tasks):
+    if not isinstance(tasks, list):
+        raise ValueError("Task data must be a JSON list.")
+
+    ids = set()
+    for task in tasks:
+        if not isinstance(task, dict):
+            raise ValueError("Each task must be a JSON object.")
+        if set(task) != TASK_FIELDS:
+            raise ValueError("Each task must contain the expected fields.")
+        if not isinstance(task["id"], int) or isinstance(task["id"], bool) or task["id"] <= 0:
+            raise ValueError("Task IDs must be positive integers.")
+        if task["id"] in ids:
+            raise ValueError("Task IDs must be unique.")
+        ids.add(task["id"])
+        if not isinstance(task["title"], str) or not task["title"].strip():
+            raise ValueError("Task titles must not be empty.")
+        if len(task["title"].strip()) > MAX_TITLE_LENGTH:
+            raise ValueError(f"Task titles cannot exceed {MAX_TITLE_LENGTH} characters.")
+        if not isinstance(task["description"], str) or len(task["description"]) > MAX_DESCRIPTION_LENGTH:
+            raise ValueError(f"Descriptions cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
+        if task["status"] not in VALID_STATUSES:
+            raise ValueError("Task status is invalid.")
+        validate_date(task["due_date"], "Due date")
+        validate_date(task["created_at"], "Created date", allow_empty=False)
+        validate_date(task["updated_at"], "Updated date", allow_empty=False)
+        validate_date(task["completed_at"], "Completed date")
+        if task["status"] == "completed" and not task["completed_at"]:
+            raise ValueError("Completed tasks must have a completed date.")
+        if task["status"] != "completed" and task["completed_at"]:
+            raise ValueError("Only completed tasks may have a completed date.")
 
 
 def add_task(title, description, due_date):
     title = title.strip()
     if not title:
         print("A task title is required.")
+        return
+    if len(title) > MAX_TITLE_LENGTH:
+        print(f"Task titles cannot exceed {MAX_TITLE_LENGTH} characters.")
+        return
+    description = description.strip()
+    if len(description) > MAX_DESCRIPTION_LENGTH:
+        print(f"Descriptions cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
         return
 
     due_date = parse_due_date(due_date)
@@ -47,7 +116,7 @@ def add_task(title, description, due_date):
     task = {
         "id": max((task["id"] for task in tasks), default=0) + 1,
         "title": title,
-        "description": description.strip(),
+        "description": description,
         "status": "pending",
         "due_date": due_date,
         "created_at": today(),
@@ -70,16 +139,26 @@ def edit_task(task_id, new_title, new_description, new_due_date):
         print("Task not found.")
         return
 
-    if new_title.strip():
-        task["title"] = new_title.strip()
-    if new_description.strip().lower() == "none":
-        task["description"] = ""
-    elif new_description.strip():
-        task["description"] = new_description.strip()
+    new_title = new_title.strip()
+    new_description = new_description.strip()
+    new_due_date = new_due_date.strip()
 
-    if new_due_date.strip().lower() == "none":
+    if new_title:
+        if len(new_title) > MAX_TITLE_LENGTH:
+            print(f"Task titles cannot exceed {MAX_TITLE_LENGTH} characters.")
+            return
+        task["title"] = new_title
+    if new_description.lower() == "none":
+        task["description"] = ""
+    elif new_description:
+        if len(new_description) > MAX_DESCRIPTION_LENGTH:
+            print(f"Descriptions cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
+            return
+        task["description"] = new_description
+
+    if new_due_date.lower() == "none":
         task["due_date"] = ""
-    elif new_due_date.strip():
+    elif new_due_date:
         due_date = parse_due_date(new_due_date)
         if due_date is None:
             return
@@ -137,10 +216,14 @@ def delete_task(task_id):
 
 def read_task_id(prompt):
     try:
-        return int(input(prompt))
+        task_id = int(input(prompt))
     except ValueError:
         print("Please enter a valid numeric task ID.")
         return None
+    if task_id <= 0:
+        print("Task ID must be a positive integer.")
+        return None
+    return task_id
 
 def display_menu():
     print()

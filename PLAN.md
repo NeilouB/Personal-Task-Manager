@@ -66,28 +66,34 @@
 
 ## Task Model
 
- Field         |Type       |Required|Description                                              |
-|--------------|-----------|--------|---------------------------------------------------------|
-|`id`          |UUID/string|Yes     |Unique task identifier                                   |
-|`title`       |String     |Yes     |Short task name; must not be blank                       |
-|`description` |String     |No      |Additional details                                       |
-|`status`      |Enum       |Yes     |`pending`, `in_progress`, or `completed`                 |
-|`due_date`    |Date       |No      |Optional deadline                                        |
-|`created_at`  |DateTime   |Yes     |Creation timestamp                                       |
-|`updated_at`  |DateTime   |Yes     |Last modification timestamp                              |
-|`completed_at`|DateTime   |No      |Set when completed; cleared if reopened                  |
+| Field | Type | Required | Description |
+|---|---|---:|---|
+| `id` | Positive integer | Yes | Unique, immutable task identifier |
+| `title` | String, maximum 200 characters | Yes | Short task name; must not be blank |
+| `description` | String, maximum 2,000 characters | No | Additional details; empty when not provided |
+| `status` | Enum | Yes | `pending`, `in_progress`, or `completed` |
+| `due_date` | `YYYY-MM-DD` string | No | Optional deadline; empty when not provided |
+| `created_at` | `YYYY-MM-DD` string | Yes | Creation date |
+| `updated_at` | `YYYY-MM-DD` string | Yes | Last modification date |
+| `completed_at` | `YYYY-MM-DD` string or `null` | No | Set when completed; cleared if reopened |
 
 ### Model Rules
 
 - `id` must be unique and immutable.
+- New IDs must be one greater than the highest existing ID; IDs are not reused after deletion.
 - `title` must contain at least one non-whitespace character.
-- Titles should have a defined maximum length, such as 200 characters.
+- `title` must not exceed 200 characters after trimming whitespace.
+- `description` must not exceed 2,000 characters.
 - New tasks default to `pending`.
+- Dates must use the `YYYY-MM-DD` format and represent valid calendar dates.
+- `due_date` is optional and is stored as an empty string when omitted.
 - Only completed tasks may have a `completed_at` value.
+- Completed tasks must have a `completed_at` date.
 - A task may be reopened, changing its status from `completed`.
 - Deleted tasks are permanently removed from storage.
 - `updated_at` changes whenever task data changes.
 - All task fields must persist between application sessions.
+- Saved task data must be a JSON list of valid task objects with unique positive IDs.
 
 ## Edge Cases
 
@@ -96,8 +102,13 @@
 - Empty or whitespace-only title.
 - Title exceeding the maximum length.
 - Description exceeding its maximum length.
+- Invalid date, including impossible dates such as `2026-02-30`.
+- Incorrect date format.
 - Duplicate task titles.
 - Missing or invalid task identifier.
+- Zero, negative, non-numeric, or duplicate task IDs.
+- Invalid task status.
+- Missing or unexpected fields in saved task data.
 - Saving while required data is incomplete.
 - User cancels task creation.
 
