@@ -33,6 +33,7 @@ pip-wheel-metadata/
 *.db
 *.sqlite
 *.sqlite3
+tasks.json
 
 # IDE and editor files
 .vscode/*
