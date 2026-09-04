@@ -71,7 +71,7 @@
 | `id` | Positive integer | Yes | Unique, immutable task identifier |
 | `title` | String, maximum 200 characters | Yes | Short task name; must not be blank |
 | `description` | String, maximum 2,000 characters | No | Additional details; empty when not provided |
-| `status` | Enum | Yes | `pending`, `in_progress`, or `completed` |
+| `status` | Enum | Yes | `pending`, or `completed` |
 | `due_date` | `YYYY-MM-DD` string | No | Optional deadline; empty when not provided |
 | `created_at` | `YYYY-MM-DD` string | Yes | Creation date |
 | `updated_at` | `YYYY-MM-DD` string | Yes | Last modification date |
