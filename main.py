@@ -19,27 +19,26 @@ TASK_FIELDS = {
 
 def load_tasks():
     try:
-        with open("tasks.json", "r") as file:
-            tasks = json.load(file)
+        with open("tasks.json", "r", encoding="utf-8") as file:
+            data = json.load(file)
     except FileNotFoundError:
         # If the file doesn't exist, create an empty list of tasks
-        return []
+        return {"next_id": 1, "tasks": []}
     except json.JSONDecodeError as error:
         # If the file contains invalid JSON
         raise ValueError("tasks.json contains invalid JSON.") from error
     # Check the validity of the tasks
-    validate_tasks(tasks)
-    return tasks
+    validate_data(data)
+    return data
 
 
-def save_tasks(tasks_list):
-    with open("tasks.json", "w") as file:
-        json.dump(tasks_list, file, indent=4)
+def save_tasks(data):
+    with open("tasks.json", "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4)
 
 
 def today():
     return date.today().strftime(DATE_FORMAT)
-
 
 def validate_date(value, field_name, allow_empty=True):
     if allow_empty and value in ("", None):
@@ -98,7 +97,23 @@ def validate_tasks(tasks):
             raise ValueError("Only completed tasks may have a completed date.")
 
 
-def add_task(tasks_list, title, description, due_date):
+def validate_data(data):
+    if not isinstance(data, dict):
+        raise ValueError("Task data must be a JSON object.")
+
+    if not isinstance(data.get("next_id"), int) or isinstance(data.get("next_id"), bool) or data["next_id"] <= 0:
+        raise ValueError("next_id must be a positive integer.")
+
+    if "tasks" not in data:
+        raise ValueError("Task data must contain a tasks list.")
+
+    validate_tasks(data["tasks"])
+
+    highest_id = max((task["id"] for task in data["tasks"]), default=0)
+    if data.get("next_id") <= highest_id:
+        raise ValueError("next_id must be greater than every task ID.")
+
+def add_task(data, title, description, due_date):
     title = title.strip()
     # Title is required and must not exceed the maximum length
     if not title:
@@ -118,7 +133,7 @@ def add_task(tasks_list, title, description, due_date):
         return
 
     task = {
-        "id": max((task["id"] for task in tasks_list), default=0) + 1,
+        "id": data["next_id"],
         "title": title,
         "description": description,
         "status": "pending",
@@ -127,7 +142,8 @@ def add_task(tasks_list, title, description, due_date):
         "updated_at": today(),
         "completed_at": None
     }
-    tasks_list.append(task)
+    data["tasks"].append(task)
+    data["next_id"] += 1
     print("Task added.")
 
 
@@ -149,22 +165,30 @@ def edit_task(tasks_list, task_id, new_title, new_description, new_due_date):
         if len(new_title) > MAX_TITLE_LENGTH:
             print(f"Task titles cannot exceed {MAX_TITLE_LENGTH} characters.")
             return
-        task["title"] = new_title
+
     if new_description.lower() == "none":
-        task["description"] = ""
+        description = ""
     elif new_description:
         if len(new_description) > MAX_DESCRIPTION_LENGTH:
             print(f"Descriptions cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
             return
-        task["description"] = new_description
+        description = new_description
+    else:
+        description = task["description"]
 
     if new_due_date.lower() == "none":
-        task["due_date"] = ""
+        due_date = ""
     elif new_due_date:
         due_date = parse_due_date(new_due_date)
         if due_date is None:
             return
-        task["due_date"] = due_date
+    else:
+        due_date = task["due_date"]
+
+    if new_title:
+        task["title"] = new_title
+    task["description"] = description
+    task["due_date"] = due_date
 
     task["updated_at"] = today()
     print("Task updated.")
@@ -238,11 +262,11 @@ def display_menu():
 if __name__ == "__main__":
     while True:
         try :
-            tasks = load_tasks()
+            data = load_tasks()
         except ValueError as error:
             print(f"Error loading tasks: {error}")
             break
-        
+        tasks = data["tasks"]
         display_menu()
 
         choice = input("What would you like to do? : ")
@@ -251,30 +275,33 @@ if __name__ == "__main__":
             title = input("Enter task title (required): ")
             description = input("Enter task description (optional): ")
             due_date = input("Enter task due date (optional, format: YYYY-MM-DD): ")
-            add_task(tasks, title, description, due_date)
+            add_task(data, title, description, due_date)
         elif choice == "2":
             view_tasks(tasks)
         elif choice == "3":
             view_tasks(tasks)
-            task_id = read_task_id("Enter the ID of the task to complete: ")
-            if task_id is not None:
-                complete_task(tasks,task_id)
+            if tasks:
+                task_id = read_task_id("Enter the ID of the task to complete: ")
+                if task_id is not None:
+                    complete_task(tasks, task_id)
         elif choice == "4":
             view_tasks(tasks)
-            task_id = read_task_id("Enter the ID of the task to delete: ")
-            if task_id is not None:
-                delete_task(tasks,task_id)
+            if tasks:
+                task_id = read_task_id("Enter the ID of the task to delete: ")
+                if task_id is not None:
+                    delete_task(tasks, task_id)
         elif choice == "5":
             view_tasks(tasks)
-            task_id = read_task_id("Enter the ID of the task to edit: ")
-            if task_id is not None:
-                new_title = input("New title (Enter to keep): ")
-                new_description = input("New description (Enter to keep, or 'none' to clear): ")
-                new_due_date = input("New due date (Enter to keep, or 'none' to clear): ")
-                edit_task(tasks, task_id, new_title, new_description, new_due_date)
+            if tasks:
+                task_id = read_task_id("Enter the ID of the task to edit: ")
+                if task_id is not None:
+                    new_title = input("New title (Enter to keep): ")
+                    new_description = input("New description (Enter to keep, or 'none' to clear): ")
+                    new_due_date = input("New due date (Enter to keep, or 'none' to clear): ")
+                    edit_task(tasks, task_id, new_title, new_description, new_due_date)
         elif choice == "6":
             break
         else:
             print("Invalid choice. Please try again.")
 
-        save_tasks(tasks)
+        save_tasks(data)
