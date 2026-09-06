@@ -1,5 +1,4 @@
 from datetime import date
-
 from validation import DATE_FORMAT, MAX_TITLE_LENGTH, MAX_DESCRIPTION_LENGTH
 from validation import parse_due_date
 
